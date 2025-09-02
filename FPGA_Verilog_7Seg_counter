@@ -1,0 +1,72 @@
+DESIGN SOURCE:
+
+
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company:
+// Engineer:
+//
+// Create Date: 11/29/2023 01:15:00 PM
+// Design Name:
+// Module Name: led_display_counter
+// Project Name:
+// Target Devices:
+// Tool Versions:
+// Description:
+//
+// Dependencies:
+//
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+//
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module led_display_counter(
+input sys_clk,
+input rst_n,
+output reg [6:0] led
+
+    );
+   
+  reg [3:0] L_cnt = 0;
+//  reg [3:0] L2_cnt = 0;
+  reg[31:0] timer_cnt;
+
+
+  always@(posedge sys_clk)
+  begin
+    if(!rst_n)
+        begin
+            L_cnt <= 4'b0000;
+            timer_cnt <= 32'd0;
+ //           L2_cnt <= 4'b0000;
+        end
+//        else if(L_cnt > 4'b1001)
+//        begin
+//            L2_cnt <= L2_cnt + 1;
+//            L_cnt <= 4'b0000;
+//            timer_cnt <= 32'd0;
+//        end
+//        else if(L2_cnt > 4'b1001)
+//        begin
+//            L2_cnt <= 4'b0000;
+//        end
+    else if(timer_cnt >= 32'd50_000_000)
+        begin
+            timer_cnt <= 32'd0;
+            if (L_cnt >= 4'd9)
+                L_cnt <= 4'd0;
+            else
+                L_cnt <= L_cnt + 1;
+        end else begin
+            timer_cnt <= timer_cnt + 1;
+       
+//             L_cnt <= L_cnt + 1;
+//        end
+//    else
+//        begin
+//            L_cnt <= L_cnt;
+//            timer_cnt <= timer_cnt + 32'd1;
+endmodule
