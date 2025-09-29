@@ -1,0 +1,95 @@
+#include <Arduino.h>
+//-----------
+// Title: lux_measurer
+//-----------
+//Program Detail:
+//-----------
+// Purpose: Measure lux and alert user if it is too low
+// Inputs: light
+// Outputs: Buzzer (if its too dark), RGB (if its too bright)
+// Date: 9/28/2025
+// Compiler: platformIO
+// Author: Juan Jimenez
+// Versions:
+//
+//-----------
+// File Dependencies:
+//-----------
+// Main Program
+//-----------
+
+// put function declarations here:
+
+#include <Arduino.h>
+
+
+// INSTANTIATE VARIABLES
+int lux_measured = 100;
+int lux_adc = A0;
+int buzzer = D4;
+int RGB_R = D5;
+int RGB_G = D6;
+int RGB_B = D7;
+float lux_volt;
+
+const int lux_threshold = 100;
+
+//SETUP INPUTS AND OUTPUTS
+void setup() {
+  pinMode(lux_adc, INPUT);
+  pinMode(buzzer, OUTPUT);
+  pinMode(RGB_R, OUTPUT);
+  pinMode(RGB_G, OUTPUT);
+  pinMode(RGB_B, OUTPUT);
+  Serial.begin(9600);
+}
+
+// COLORS
+void color(int r, int g, int b){
+  analogWrite(RGB_R, r);
+  analogWrite(RGB_G, g);
+  analogWrite(RGB_B, b);
+}
+
+void loop() {
+  int adc_value = analogRead(lux_adc);
+
+  // Invert ADC if LDR gives higher values when dark, 200 because its mapped more accurately for the lower threshold
+  lux_measured = map(adc_value, 0, 1023, 200, 0);  
+
+  // Active conversion for calculation, ADC Vout
+  lux_volt = (adc_value * 3.3)/ 1023;
+
+  //Conversion for accurate output of readings
+  //float RDLR = (10000 * lux_volt)/ (3.3 - lux_volt);
+  //float RDLR_kOhm = RDLR /1000.0;
+  //int lux = (int)(900 * pow(RDLR_kOhm, -1.4));
+  int lux = (log(lux_volt/3852)/-3.9);
+
+  Serial.print("Lux: ");
+  Serial.println(lux);
+
+  if (lux_measured < lux_threshold){   // Too dark → buzzer ON
+    digitalWrite(buzzer, HIGH);
+    color(255, 255, 255);              // White LED
+  } else {                             // Bright enough → buzzer OFF
+    digitalWrite(buzzer, LOW);
+    int r = 255;
+    int g = map(lux_measured, lux_threshold, 200, 255, 0);
+    int b = map(lux_measured, lux_threshold, 200, 255, 0);
+    color(r, g, b);
+  }
+
+  // Manual buzzer test
+  if (Serial.available()) {
+    char buzzer_int = Serial.read();
+    if (buzzer_int == 'B' || buzzer_int == 'b') {
+      digitalWrite(buzzer, HIGH);
+      delay(5000);
+      digitalWrite(buzzer, LOW);
+    }
+  }
+
+  delay(1000);
+}
+
