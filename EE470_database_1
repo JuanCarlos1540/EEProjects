@@ -1,0 +1,66 @@
+-- Create the tables first, sensor_registor and sensor_data
+CREATE TABLE sensor_register (
+    node_name VARCHAR(10) PRIMARY KEY,
+    manufacturer VARCHAR(10) NOT NULL,
+    longitude DECIMAL(15,10) NOT NULL,
+    latitude DECIMAL(15,10) NOT NULL
+);
+CREATE TABLE sensor_data (
+    node_name VARCHAR(10),
+    time_received DATETIME NOT NULL,
+    temperature DECIMAL(6,2) CHECK (temperature BETWEEN -10 AND 100),
+    humidity DECIMAL(6,2) CHECK (humidity BETWEEN 0 AND 100),
+    FOREIGN KEY (node_name) REFERENCES sensor_register(node_name)
+);
+
+-- insert values for sensor_register
+INSERT INTO sensor_register (node_name, manufacturer, longitude, latitude) VALUES
+('node_1', 'Bosch', -122.4194, 37.7749),
+('node_2', 'Honeywell', -118.2437, 34.0522),
+('node_3', 'Siemens', -74.0060, 40.7128),
+('node_4', 'Panasonic', -95.3698, 29.7604),
+('node_5', 'Omron', -87.6298, 41.8781);
+
+-- insert values for sensor_data, including node_name, the time and date, temp and humidity
+INSERT INTO sensor_data (node_name, time_received, temperature, humidity) VALUES
+('node_1', '2022-10-01 11:00:00', 22.50, 45.20),
+('node_1', '2022-10-01 11:30:00', 23.10, 46.00),
+('node_1', '2022-10-01 12:00:00', 24.30, 44.50),
+('node_1', '2022-10-01 12:30:00', 25.00, 43.70),
+
+('node_2', '2022-10-01 11:00:00', 20.00, 50.00),
+('node_2', '2022-10-01 11:30:00', 20.30, 51.20),
+('node_2', '2022-10-01 12:00:00', 21.00, 49.50),
+('node_2', '2022-10-01 12:30:00', 21.40, 48.80),
+
+('node_3', '2022-10-01 11:00:00', 19.50, 55.10),
+('node_3', '2022-10-01 11:30:00', 20.00, 54.80),
+('node_3', '2022-10-01 12:00:00', 21.10, 53.50),
+('node_3', '2022-10-01 12:30:00', 21.80, 52.70),
+
+('node_4', '2022-10-01 11:00:00', 23.20, 42.50),
+('node_4', '2022-10-01 11:30:00', 23.80, 43.00),
+('node_4', '2022-10-01 12:00:00', 24.50, 41.90),
+('node_4', '2022-10-01 12:30:00', 25.00, 40.80),
+
+('node_5', '2022-10-01 11:00:00', 26.00, 38.50),
+('node_5', '2022-10-01 11:30:00', 26.70, 39.20),
+('node_5', '2022-10-01 12:00:00', 27.40, 37.80),
+('node_5', '2022-10-01 12:30:00', 28.10, 36.50);
+
+-- Join both tables together
+CREATE VIEW sensor_combined AS
+SELECT
+	sd.node_name, -- I got lazy and made sd and sr shortcut
+    sr.manufacturer,
+    sr.longitude,
+    sr.latitude,
+    sd.time_recieved,
+    sd.temperature,
+    sd.humidity
+FROM
+	sensor_data sd
+JOIN
+	sensor_register sr
+ON
+	sd.node_name = sr.node_name;
