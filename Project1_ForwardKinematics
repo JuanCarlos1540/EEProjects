@@ -1,0 +1,113 @@
+%% Project 1 - Forward Kinematics (5 DOF)
+% Author: Juan Jimenez
+% Computes (x,y,z), Rotation matrix, Euler ZYX, and Axis-Angle.
+% Prints DH table, A_i, final H, and a summary table for 3 user-entered sets
+clear; clc;
+%% DH Parameters: [alpha  a  d  theta_offset]
+% Craig's DH convention:
+% T_{i-1}^i = Rot_x(alpha_i) * Trans_x(a_i) * Rot_z(theta_i) * Trans_z(d_i)
+% θ5 has an offset of -90 degrees to match expected orientation.
+DH = [   90    0       103.91        0;
+        0    157.7       0        0;
+        0    150       0       0;
+        90    0      0       0;
+        0    0    131       0]; 
+fprintf('Parameters\n');
+disp(array2table(DH, ...
+   'VariableNames', {'alpha_deg','a_mm','d_mm','thetaOffset_deg'}, ...
+   'RowNames', {'Joint1','Joint2','Joint3','Joint4','Joint5'}));
+%% User Inputs: 3 sets of θ (deg)
+fprintf('\nEnter 3 sets of joint angles θ1–θ5 (degrees)\n');
+theta_sets = zeros(3,5);
+for t = 1:3
+   fprintf('Set %d:\n', t);
+   theta_sets(t,:) = input('  Enter [θ1 θ2 θ3 θ4 θ5]: ');
+end
+%% ===== Storage for summary =====
+positions = zeros(3,3);
+eulers    = zeros(3,3);
+axangles  = zeros(3,4);   % [ux uy uz theta_deg]
+R_cells   = cell(3,1);    % store 3x3 rotation matrices
+fprintf('\n================ A Matrices & Final H for Each Set ================\n');
+for t = 1:3
+   fprintf('\n=== Test Configuration %d ===\n', t);
+   theta = theta_sets(t,:);
+   % Forward Kinematics with Modified DH
+   T = eye(4);
+   for i = 1:5
+       alpha = deg2rad(DH(i,1));
+       a     = DH(i,2);
+       d     = DH(i,3);
+       th    = deg2rad(theta(i));
+       % -------- Modified DH (Craig) A_i --------
+       % A_i = Rot_x(alpha) * Trans_x(a) * Rot_z(theta) * Trans_z(d)
+       A = [ cos(th),        -sin(th)*cos(alpha),        sin(th)*sin(alpha),        a*cos(th);
+             sin(th), cos(th)*cos(alpha), -cos(th)*sin(alpha), a*sin(th);
+             0, sin(alpha),  cos(alpha),  d;
+             0,                  0,                   0,           1 ];
+       % ------------------------------------------
+       fprintf('\nA%d:\n', i); disp(A);
+       T = T * A;
+   end
+   fprintf('\nH0_5 (Final Transform):\n'); disp(T);
+   % Extract results
+   R = T(1:3,1:3);
+   p = T(1:3,4);
+   eulZYX = rotm2eul_ZYX_manual(R);         % [yaw pitch roll] in degrees
+   axang  = rotm2axang_manual(R);           % [ux uy uz theta(rad)]
+   positions(t,:) = p.';
+   eulers(t,:)    = eulZYX;
+   axangles(t,:)  = [axang(1:3), rad2deg(axang(4))];
+   R_cells{t}     = R;
+   % Pretty print
+   fprintf('End-Effector Position (x,y,z): [%.2f, %.2f, %.2f]\n', p(1), p(2), p(3));
+   fprintf('Rotation Matrix R:\n'); disp(R);
+   fprintf('Euler ZYX (deg): [%.2f, %.2f, %.2f]\n', eulZYX(1), eulZYX(2), eulZYX(3));
+   fprintf('Axis-Angle [ux uy uz θ(deg)]: [%.4f %.4f %.4f %.2f]\n', ...
+       axang(1), axang(2), axang(3), rad2deg(axang(4)));
+end
+%% ===== Summary Table =====
+fprintf('\n================ Summary Table (3 Configurations) ================\n');
+ResultsTable = table(...
+   theta_sets(:,1), theta_sets(:,2), theta_sets(:,3), theta_sets(:,4), theta_sets(:,5), ...
+   positions(:,1), positions(:,2), positions(:,3), ...
+   eulers(:,1), eulers(:,2), eulers(:,3), ...
+   axangles(:,1), axangles(:,2), axangles(:,3), axangles(:,4), ...
+   R_cells, ...
+   'VariableNames', {'θ1','θ2','θ3','θ4','θ5', ...
+                     'x','y','z', ...
+                     'Yaw_Z','Pitch_Y','Roll_X', ...
+                     'ux','uy','uz','θ_deg', ...
+                     'R_3x3'});
+disp(ResultsTable);
+%% ===== Helper Functions =====
+function axang = rotm2axang_manual(R)
+   % Converts a 3x3 rotation matrix R to axis-angle [ux uy uz theta]
+   % theta in radians
+   theta = acos(max(min((trace(R)-1)/2,1),-1)); % clamp for numerical safety
+   if abs(theta) < 1e-9
+       axang = [1 0 0 0];
+       return;
+   end
+   rx = R(3,2) - R(2,3);
+   ry = R(1,3) - R(3,1);
+   rz = R(2,1) - R(1,2);
+   axis = [rx ry rz] / (2*sin(theta));
+   axis = axis / norm(axis);
+   axang = [axis theta];
+end
+function eulZYX = rotm2eul_ZYX_manual(R)
+   % Returns [yaw pitch roll] (ZYX order, in degrees)
+   if abs(R(3,1)) < 1
+       pitch = -asin(R(3,1));
+       roll  = atan2(R(3,2), R(3,3));
+       yaw   = atan2(R(2,1), R(1,1));
+   else
+       % Gimbal lock
+       pitch = pi/2 * sign(-R(3,1));
+       roll  = 0;
+       yaw   = atan2(-R(1,2), R(2,2));
+   end
+   eulZYX = rad2deg([yaw, pitch, roll]);
+end
+
