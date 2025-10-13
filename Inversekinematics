@@ -1,0 +1,70 @@
+% DH Parameters
+DH = [  90      0       103.91     0;
+        0     157.7       0        0;
+        0     150         0        0;
+       90       0         0        0;
+        0       0       131        0];
+target = input('\nEnter desired end-effector position [x y z] (mm): ');
+theta_init = [0 45 -30 0 0];   % initial guess
+% Inverse Kinematics Solve
+theta_sol = IK_position(DH, target, theta_init);
+% Forward Check
+p_check = FK_position(DH, theta_sol);
+% Display Results
+fprintf('\nEstimated Joint Angles (degrees):\n');
+fprintf('  θ1 = %.2f\n  θ2 = %.2f\n  θ3 = %.2f\n  θ4 = %.2f\n  θ5 = %.2f\n', theta_sol);
+fprintf('\nForward Kinematics Check (x, y, z): [%.2f, %.2f, %.2f] mm\n', p_check);
+%functions
+function p = FK_position(DH, theta_deg)
+   % Forward Kinematics → returns end-effector position (x,y,z)
+   T = eye(4);
+   for i = 1:5
+       alpha = deg2rad(DH(i,1));
+       a     = DH(i,2);
+       d     = DH(i,3);
+       th    = deg2rad(theta_deg(i) + DH(i,4));
+       % correct A matrix calculation
+       A = [ cos(th), -sin(th)*cos(alpha),  sin(th)*sin(alpha), a*cos(th);
+             sin(th),  cos(th)*cos(alpha), -cos(th)*sin(alpha), a*sin(th);
+             0,        sin(alpha),          cos(alpha),          d;
+             0,        0,                   0,                   1 ];
+       T = T * A;
+   end
+   p = T(1:3,4).';   % row vector [x y z]
+end
+function theta_sol = IK_position(DH, target, initial_guess)
+   % Simple numerical inverse kinematics (position only)
+   theta = initial_guess;
+   step = 1;          % degrees per iteration
+   maxIter = 300;
+   for iter = 1:maxIter
+       improved = false;
+       for j = 1:5
+           bestLocal = inf;
+           bestDelta = 0;
+           % Try ±step for joint j
+           for delta = [-step, step]
+               testTheta = theta;
+               testTheta(j) = testTheta(j) + delta;
+               pTest = FK_position(DH, testTheta);
+               dist = norm(target - pTest);
+               if dist < bestLocal
+                   bestLocal = dist;
+                   bestDelta = delta;
+               end
+           end
+           % Apply the best delta
+           if bestLocal < inf
+               theta(j) = theta(j) + bestDelta;
+               improved = true;
+           end
+       end
+       % Refine step size if no improvement
+       if ~improved
+           step = step / 2;
+       end
+   end
+   theta_sol = theta;
+end
+
+
