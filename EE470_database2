@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SSU IoT Lab</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f9fc;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            color: #2b2b2b;
+            margin-top: 40px;
+        }
+        h2 {
+            margin-top: 40px;
+            color: #333;
+        }
+        table {
+            border-collapse: collapse;
+            margin: 20px auto;
+            width: 80%;
+            background-color: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        th {
+            background-color: #9acd32;
+            color: black;
+            padding: 10px;
+        }
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+        }
+        footer {
+            margin-top: 40px;
+            font-size: 12px;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Welcome to SSU IoT Lab</h1>
+
+<?php
+// error display 
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// database connection
+$servername = "localhost";
+$username   = "u217493069_db_juanjimenez";
+$password   = "P@ncho1540";
+$dbname     = "u217493069_juanjimenez";
+
+// Create connection
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Check connection
+if ($conn->connect_error) {
+    die("<p> Connection failed: " . $conn->connect_error . "</p>");
+} else {
+    echo "<p> Database connection successful.</p>";
+}
+
+//sensor reg table
+echo "<h2>Registered Sensor Nodes</h2>";
+
+$sql_register = "SELECT * FROM sensor_register ORDER BY node_name ASC";
+$result_register = $conn->query($sql_register);
+
+if ($result_register && $result_register->num_rows > 0) {
+    echo "<table>";
+    echo "<tr><th>Node Name</th><th>Manufacturer</th><th>Longitude</th><th>Latitude</th></tr>";
+    while($row = $result_register->fetch_assoc()) {
+        echo "<tr>";
+        echo "<td>" . htmlspecialchars($row["node_name"]) . "</td>";
+        echo "<td>" . htmlspecialchars($row["manufacturer"]) . "</td>";
+        echo "<td>" . htmlspecialchars($row["longitude"]) . "</td>";
+        echo "<td>" . htmlspecialchars($row["latitude"]) . "</td>";
+        echo "</tr>";
+    }
+    echo "</table>";
+} else {
+    echo "<p>No registered sensor data found.</p>";
+}
+
+//sensor data table
+echo "<h2>Data Received</h2>";
+
+$sql_data = "SELECT * FROM sensor_data ORDER BY node_name ASC, time_received ASC";
+$result_data = $conn->query($sql_data);
+
+if ($result_data && $result_data->num_rows > 0) {
+    echo "<table>";
+    echo "<tr><th>Node Name</th><th>Time Received</th><th>Temperature (°C)</th><th>Humidity (%)</th></tr>";
+    while($row = $result_data->fetch_assoc()) {
+        echo "<tr>";
+        echo "<td>" . htmlspecialchars($row["node_name"]) . "</td>";
+        echo "<td>" . htmlspecialchars($row["time_received"]) . "</td>";
+        echo "<td>" . htmlspecialchars($row["temperature"]) . "</td>";
+        echo "<td>" . htmlspecialchars($row["humidity"]) . "</td>";
+        echo "</tr>";
+    }
+    echo "</table>";
+} else {
+    echo "<p>No sensor data found.</p>";
+}
+
+$conn->close();
+?>
+
+<footer>
+    <p>SSU IoT Lab © <?php echo date("Y"); ?></p>
+</footer>
+
+</body>
+</html>
