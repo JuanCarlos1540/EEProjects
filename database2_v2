@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SSU IoT Lab</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f9fc;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        h1 { color: #2b2b2b; margin-top: 40px; }
+        h2 { margin-top: 40px; color: #333; }
+        table {
+            border-collapse: collapse;
+            margin: 20px auto;
+            width: 80%;
+            background-color: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        th {
+            background-color: #9acd32;
+            color: black;
+            padding: 10px;
+        }
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+        }
+        select, input[type="submit"] {
+            padding: 8px 12px;
+            margin: 10px;
+            font-size: 14px;
+        }
+        footer {
+            margin-top: 40px;
+            font-size: 12px;
+            color: #777;
+        }
+        canvas {
+            margin: 40px auto;
+            display: block;
+            max-width: 800px;
+            height: 400px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+<h1>Welcome to SSU IoT Lab</h1>
+
+<?php
+// enable PHP error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// connect to database
+$servername = "localhost";
+$username   = "u217493069_db_juanjimenez";
+$password   = "P@ncho1540";
+$dbname     = "u217493069_juanjimenez";
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// check connection
+if ($conn->connect_error) {
+    die("<p>Connection failed: " . $conn->connect_error . "</p>");
+} else {
+    echo "<p>Database connection successful.</p>";
+}
+
+// decode base64 message if needed
+if (isset($_SERVER['QUERY_STRING']) && !empty($_SERVER['QUERY_STRING'])) {
+    $raw_query = $_SERVER['QUERY_STRING'];
+
+    // decode URL-encoded Base64 (handles %2B, %2F, %3D)
+    $decoded_query = urldecode($raw_query);
+
+    // show the raw query for debugging
+    echo "<p style='color:gray;'>Raw Query: $raw_query</p>";
+
+    // try to Base64-decode safely
+    $decoded = base64_decode($decoded_query, true);
+
+    // only continue if decoding succeeded and result looks like key=value pairs
+    if ($decoded !== false && strpos($decoded, '=') !== false) {
+        echo "<h2>Decoded Base64 Message</h2>";
+        echo "<p>$decoded</p>";
+
+        // parse into key-value pairs and add to $_GET
+        parse_str($decoded, $decoded_params);
+        foreach ($decoded_params as $key => $value) {
+            $_GET[$key] = urldecode($value);
+        }
+    }
+}
+
+
+// insert data with get and curl
+if (isset($_GET['node_name']) && isset($_GET['temperature'])) {
+    $nodeId   = trim($_GET['node_name']);
+    $nodeTemp = floatval($_GET['temperature']);
+    $nodeHum  = isset($_GET['humidity']) ? floatval($_GET['humidity']) : null;
+    // set timezone to Pacific (PST/PDT)
+    date_default_timezone_set('America/Los_Angeles');
+
+    $timeRecv = isset($_GET['time_received']) && !empty($_GET['time_received'])
+            ? $_GET['time_received']
+            : date("Y-m-d H:i:s"); // auto timestamp if missing
+
+
+    // check if node registered
+    $check_node = "SELECT node_name FROM sensor_register WHERE node_name = '$nodeId'";
+    $result_node = $conn->query($check_node);
+
+    if ($result_node->num_rows == 0) {
+        echo "<p style='color:red;'>Node '$nodeId' is not registered — data rejected.</p>";
+    } else {
+        // check duplicate timestamp
+        $check_dup = "SELECT * FROM sensor_data WHERE node_name='$nodeId' AND time_received='$timeRecv'";
+        $result_dup = $conn->query($check_dup);
+
+        if ($result_dup->num_rows > 0) {
+            echo "<p style='color:red;'>Duplicate entry for $nodeId at $timeRecv — rejected.</p>";
+        } else {
+            // validate ranges
+            if ($nodeTemp < -10 || $nodeTemp > 100) {
+                echo "<p style='color:red;'>Temperature $nodeTemp°C out of range — rejected.</p>";
+            } elseif ($nodeHum !== null && ($nodeHum < 0 || $nodeHum > 100)) {
+                echo "<p style='color:red;'>Humidity $nodeHum% out of range — rejected.</p>";
+            } else {
+                // insert valid data
+                $sql_insert = "INSERT INTO sensor_data (node_name, time_received, temperature, humidity)
+                               VALUES ('$nodeId', '$timeRecv', '$nodeTemp', " . ($nodeHum !== null ? "'$nodeHum'" : "NULL") . ")";
+                if ($conn->query($sql_insert) === TRUE) {
+                    echo "<p style='color:green;'>✅ New data inserted for $nodeId at $timeRecv</p>";
+                } else {
+                    echo "<p style='color:red;'>Insert error: " . $conn->error . "</p>";
+                }
+            }
+        }
+    }
+}
+
+// display registered sensor nodes
+echo "<h2>Registered Sensor Nodes</h2>";
+$sql_register = "SELECT * FROM sensor_register ORDER BY node_name ASC";
+$result_register = $conn->query($sql_register);
+$nodes = [];
+
+if ($result_register && $result_register->num_rows > 0) {
+    echo "<table>";
+    echo "<tr><th>Node Name</th><th>Manufacturer</th><th>Longitude</th><th>Latitude</th></tr>";
+    while ($row = $result_register->fetch_assoc()) {
+        echo "<tr>
+                <td>" . htmlspecialchars($row["node_name"]) . "</td>
+                <td>" . htmlspecialchars($row["manufacturer"]) . "</td>
+                <td>" . htmlspecialchars($row["longitude"]) . "</td>
+                <td>" . htmlspecialchars($row["latitude"]) . "</td>
+              </tr>";
+        $nodes[] = $row["node_name"];
+    }
+    echo "</table>";
+} else {
+    echo "<p>No registered sensors found.</p>";
+}
+
+// show averages by dropdown
+echo "<h2>Select a Node to View Averages</h2>";
+echo "<form method='POST'>";
+echo "<select name='chosen_node'>";
+foreach ($nodes as $node) {
+    $selected = (isset($_POST['chosen_node']) && $_POST['chosen_node'] == $node) ? "selected" : "";
+    echo "<option value='$node' $selected>$node</option>";
+}
+echo "</select>";
+echo "<input type='submit' value='Show Averages'>";
+echo "</form>";
+
+if (isset($_POST['chosen_node'])) {
+    $chosen_node = $_POST['chosen_node'];
+    $sql_avg = "SELECT AVG(temperature) AS avg_temp, AVG(humidity) AS avg_hum 
+                FROM sensor_data WHERE node_name = '$chosen_node'";
+    $result_avg = $conn->query($sql_avg);
+    if ($result_avg && $result_avg->num_rows > 0) {
+        $row_avg = $result_avg->fetch_assoc();
+        echo "<p>The Average Temperature for $chosen_node has been: " . round($row_avg['avg_temp'], 1) . " °C</p>";
+        echo "<p>The Average Humidity for $chosen_node has been: " . round($row_avg['avg_hum'], 1) . " %</p>";
+    } else {
+        echo "<p>No data found for $chosen_node.</p>";
+    }
+}
+
+// display all received data
+echo "<h2>Data Received</h2>";
+$sql_data = "SELECT * FROM sensor_data ORDER BY node_name ASC, time_received ASC";
+$result_data = $conn->query($sql_data);
+
+if ($result_data && $result_data->num_rows > 0) {
+    echo "<table>";
+    echo "<tr><th>Node Name</th><th>Time Received</th><th>Temperature (°C)</th><th>Humidity (%)</th></tr>";
+    while ($row = $result_data->fetch_assoc()) {
+        echo "<tr>
+                <td>" . htmlspecialchars($row["node_name"]) . "</td>
+                <td>" . htmlspecialchars($row["time_received"]) . "</td>
+                <td>" . htmlspecialchars($row["temperature"]) . "</td>
+                <td>" . htmlspecialchars($row["humidity"]) . "</td>
+              </tr>";
+    }
+    echo "</table>";
+} else {
+    echo "<p>No sensor data found.</p>";
+}
+
+// prepare chart data for one fixed node
+$chart_node = "node_3";
+$sql_chart = "SELECT time_received, temperature FROM sensor_data WHERE node_name = '$chart_node' ORDER BY time_received ASC";
+$result_chart = $conn->query($sql_chart);
+
+$timestamps = [];
+$temperatures = [];
+if ($result_chart && $result_chart->num_rows > 0) {
+    while ($row = $result_chart->fetch_assoc()) {
+        $timestamps[] = $row['time_received'];
+        $temperatures[] = $row['temperature'];
+    }
+}
+
+$js_time = json_encode($timestamps);
+$js_temp = json_encode($temperatures);
+
+// close connection
+$conn->close();
+?>
+
+<!-- Temperature Graph -->
+<h2>Temperature Trend for <?php echo $chart_node; ?></h2>
+<canvas id="tempChart"></canvas>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const labels = <?php echo $js_time; ?>;
+const temps  = <?php echo $js_temp; ?>;
+
+if (labels.length === 0) {
+  document.getElementById('tempChart').outerHTML =
+    "<p style='color:#666;'>No data available for <?php echo $chart_node; ?>.</p>";
+} else {
+  const ctx = document.getElementById('tempChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Temperature (°C)',
+        data: temps,
+        backgroundColor: 'rgba(154, 205, 50, 0.8)',
+        borderColor: 'rgba(100, 130, 0, 1)',
+        borderWidth: 1,
+        borderRadius: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Sensor Node <?php echo $chart_node; ?>',
+          color: '#222',
+          font: { size: 18, family: 'Arial' }
+        },
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Time', color: '#333', font: { size: 14 } },
+          ticks: {
+            color: '#333',
+            maxRotation: 60,
+            minRotation: 45,
+            autoSkip: true,
+            maxTicksLimit: 8
+          },
+          grid: { color: 'rgba(220,220,220,0.5)', lineWidth: 1 }
+        },
+        y: {
+          title: { display: true, text: 'Temperature (°C)', color: '#333', font: { size: 14 } },
+          beginAtZero: true,
+          grid: { color: 'rgba(220,220,220,0.5)', lineWidth: 1 },
+          ticks: { color: '#333' }
+        }
+      }
+    }
+  });
+}
+</script>
+
+<footer>
+    <p>SSU IoT Lab © <?php echo date("Y"); ?></p>
+</footer>
+
+</body>
+</html>
