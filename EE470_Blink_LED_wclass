@@ -1,0 +1,72 @@
+/*-------------------------------------------------------------
+File: main.cpp
+Purpose: Execute Blink class
+Target: ESP8266
+Author: Juan Jimenez
+Date:   10/22/25
+--------------------------------------------------------------*/
+#include <Arduino.h>
+#include "ledblink.h"
+
+Blink LED(D3);
+
+void setup() {
+  LED.blinkRate(250);
+}
+
+void loop() {
+  LED.update();
+}
+/*-------------------------------------------------------------
+File: ledblink.h
+Class: Blink
+Target: ESP8266
+Author: Juan Jimenez
+Date:   10/22/25
+--------------------------------------------------------------*/
+#ifndef LEDBLINK_H
+#define LEDBLINK_H
+
+#include <Arduino.h>
+
+class Blink {
+public:
+    Blink(int pin);
+    void blinkRate(unsigned long rate);
+    void update();
+
+private:
+    int _pin;
+    bool _state;
+    unsigned long _rate;
+    unsigned long _lastToggle;
+};
+/*-------------------------------------------------------------
+File: ledblink.cpp
+Class: Blink implementation
+Target: ESP8266
+Author: Juan Jimenez
+Date:   10/22/25
+--------------------------------------------------------------*/
+#include "ledblink.h"
+#include <Arduino.h>
+
+Blink::Blink(int pin) : _pin(pin), _state(false), _rate(250), _lastToggle(0) {
+    pinMode(_pin, OUTPUT);
+    digitalWrite(_pin, HIGH);
+}
+
+void Blink::blinkRate(unsigned long rate) {
+    _rate = rate;
+}
+
+void Blink::update() {
+    unsigned long currentMillis = millis();
+    if (currentMillis - _lastToggle >= _rate) {
+        _lastToggle = currentMillis;
+        _state = !_state;
+        digitalWrite(_pin, _state ? LOW : HIGH);
+    }
+}
+
+#endif
