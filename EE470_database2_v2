@@ -60,9 +60,9 @@ ini_set('display_errors', 1);
 
 // connect to database
 $servername = "localhost";
-$username   = "u217493069_db_juanjimenez";
-$password   = "P@ncho1540";
-$dbname     = "u217493069_juanjimenez";
+$username   = "xxxxxxxxxxxxxxx";
+$password   = "xxxxxxxxxxxxxxxxx";
+$dbname     = "xxxxxxxxxxxxxxx";
 $conn = new mysqli($servername, $username, $password, $dbname);
 
 // check connection
