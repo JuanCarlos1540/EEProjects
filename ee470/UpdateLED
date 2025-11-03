@@ -1,0 +1,20 @@
+<?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+    $input = file_get_contents("php://input");
+    $data = json_decode($input, true);
+
+    if (isset($data['led']) && in_array($data['led'], ['ON', 'OFF'])) {
+        file_put_contents("results.txt", json_encode(["led" => $data['led']]));
+        echo "LED status updated to " . $data['led'];
+    } else {
+        http_response_code(400);
+        echo "Invalid LED value";
+    }
+} else {
+    http_response_code(405);
+    echo "Method Not Allowed";
+}
+?>
