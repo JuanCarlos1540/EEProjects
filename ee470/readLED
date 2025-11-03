@@ -1,0 +1,15 @@
+<?php
+$contents = file_get_contents("results.txt");
+$data = json_decode($contents, true);
+$status = isset($data['led']) ? $data['led'] : 'Unknown';
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>LED Status</title>
+</head>
+<body>
+  <h2>Current LED Status: <?php echo htmlspecialchars($status); ?></h2>
+</body>
+</html>
