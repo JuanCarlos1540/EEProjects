@@ -1,0 +1,48 @@
+<?php
+$contents = file_get_contents("results.txt");
+$data = json_decode($contents, true);
+$ledStatus = $data['led'] ?? 'OFF';
+$red = $data['red'] ?? 0;
+$green = $data['green'] ?? 0;
+$blue = $data['blue'] ?? 0;
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>RGB LED Control</title>
+</head>
+<body>
+  <h2>RGB LED Control</h2>
+  <p>LED Status: <strong><?php echo $ledStatus; ?></strong></p>
+
+  <form onsubmit="event.preventDefault(); sendRGB();">
+    <label>Red: <input type="range" id="red" min="0" max="255" value="<?php echo $red; ?>"></label><br>
+    <label>Green: <input type="range" id="green" min="0" max="255" value="<?php echo $green; ?>"></label><br>
+    <label>Blue: <input type="range" id="blue" min="0" max="255" value="<?php echo $blue; ?>"></label><br>
+    <button type="submit">Submit</button>
+  </form>
+
+  <script>
+    function sendRGB() {
+      const red = document.getElementById("red").value;
+      const green = document.getElementById("green").value;
+      const blue = document.getElementById("blue").value;
+
+      fetch("updateRGB.php", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          led: "ON",
+          red: parseInt(red),
+          green: parseInt(green),
+          blue: parseInt(blue)
+        })
+      })
+      .then(res => res.text())
+      .then(data => alert(data))
+      .catch(err => console.error("Error:", err));
+    }
+  </script>
+</body>
+</html>
