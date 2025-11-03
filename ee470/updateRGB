@@ -1,0 +1,31 @@
+<?php
+if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+  $input = file_get_contents("php://input");
+  $data = json_decode($input, true);
+
+  if (
+    isset($data['led']) &&
+    isset($data['red']) &&
+    isset($data['green']) &&
+    isset($data['blue']) &&
+    in_array($data['led'], ['ON', 'OFF']) &&
+    is_numeric($data['red']) &&
+    is_numeric($data['green']) &&
+    is_numeric($data['blue'])
+  ) {
+    file_put_contents("results.txt", json_encode([
+      "led" => $data['led'],
+      "red" => intval($data['red']),
+      "green" => intval($data['green']),
+      "blue" => intval($data['blue'])
+    ]));
+    echo "RGB values updated";
+  } else {
+    http_response_code(400);
+    echo "Invalid input";
+  }
+} else {
+  http_response_code(405);
+  echo "Method Not Allowed";
+}
+?>
