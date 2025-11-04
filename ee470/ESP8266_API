@@ -3,21 +3,22 @@
 #include <WiFiClientSecure.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
+//Hotspot credentials
+const char* ssid = "xxxxxx";
+const char* password = "xxxxxx";
 
-const char* ssid = "Vicente Fernandez";
-const char* password = "Pancho1540";
-
-// 🔗 URLs
+// URLs
 const char* statusUrl = "https://juanjimenez.io/results.txt";  // JSON file for LED + RGB
 const char* iftttUrl = "https://maker.ifttt.com/trigger/button_pressed/json/with/key/cg5Pua40IhzVs80C3Sb8Ob";  // IFTTT webhook
 
-// 🔌 Pins
+// Pins
 const int ledPin = D1;       // Main LED
 const int buttonPin = D2;    // Button
 const int redPin = D5;       // RGB Red
 const int greenPin = D6;     // RGB Green
 const int bluePin = D7;      // RGB Blue
 
+//detects button state change HIGH means not pressed
 bool lastState = HIGH;
 
 void setup() {
@@ -29,60 +30,63 @@ void setup() {
 
   Serial.begin(9600);
 
+//connect to wifi or hotspot
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+    Serial.print("."); //make it pretty
   }
   Serial.println("\nConnected to WiFi");
 }
-
+//parse JSON from server and apply LED and RGB
 void applyLEDandRGB(String payload) {
   StaticJsonDocument<256> doc;
   DeserializationError error = deserializeJson(doc, payload);
 
+//check if JSON parsing failed
   if (error) {
     Serial.println("JSON parse error");
     return;
   }
-
+//get data from JSON
   String ledState = doc["led"];
   int r = doc["red"];
   int g = doc["green"];
   int b = doc["blue"];
-
+// debugging
   Serial.println("LED: " + ledState);
   Serial.println("RGB: " + String(r) + ", " + String(g) + ", " + String(b));
-
+//control the LED
   digitalWrite(ledPin, (ledState == "ON") ? HIGH : LOW);
+//RGB values
   analogWrite(redPin, r);
   analogWrite(greenPin, g);
   analogWrite(bluePin, b);
 }
-
+//fetch the data from server
 void fetchStatusAndUpdate() {
   if (WiFi.status() == WL_CONNECTED) {
     WiFiClientSecure client;
-    client.setInsecure();
+    client.setInsecure(); // Disable SSL certificate verification 
 
     HTTPClient https;
     https.begin(client, statusUrl);
-    int httpCode = https.GET();
+    int httpCode = https.GET(); // Get request
 
     if (httpCode == 200) {
       String payload = https.getString();
       Serial.println("Received: " + payload);
-      applyLEDandRGB(payload);
+      applyLEDandRGB(payload); //Update the LED's
     } else {
       Serial.println("HTTPS error: " + String(httpCode));
     }
 
-    https.end();
+    https.end(); // close connection
   } else {
     Serial.println("WiFi not connected");
   }
 }
-
+// IFTTT webhook when button is pressed
 void triggerIFTTT() {
   if (WiFi.status() == WL_CONNECTED) {
     WiFiClientSecure client;
@@ -90,7 +94,7 @@ void triggerIFTTT() {
 
     HTTPClient https;
     https.begin(client, iftttUrl);
-    int httpCode = https.GET();
+    int httpCode = https.GET(); //request to IFTTT endpoint
 
     if (httpCode == 200) {
       Serial.println("IFTTT triggered successfully");
@@ -103,7 +107,7 @@ void triggerIFTTT() {
     Serial.println("WiFi not connected");
   }
 }
-
+//main loop
 void loop() {
   bool currentState = digitalRead(buttonPin);
   if (currentState == LOW && lastState == HIGH) {
